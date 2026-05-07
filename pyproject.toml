@@ -9,8 +9,23 @@ readme = "README.md"
 python = "^3.11"
 fastapi = "^0.136.1"
 uvicorn = "^0.46.0"
+sqlalchemy = "^2.0.49"
+pydantic-settings = "^2.14.0"
+alembic = "^1.18.4"
+asyncpg = "^0.31.0"
+python-jose = {extras = ["cryptography"], version = "^3.5.0"}
+emails = "^1.1.1"
+python-multipart = "^0.0.27"
+email-validator = "^2.3.0"
+bcrypt = "4.0.1"
+pyjwt = "^2.12.1"
 
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "black (>=26.3.1,<27.0.0)"
+]
