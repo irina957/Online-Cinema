@@ -18,6 +18,17 @@ from src.database.models.accounts import (
     PasswordResetToken,
     RefreshToken,
 )
+from src.database.models.movies import (
+    Genre,
+    Star,
+    Director,
+    Certification,
+    Movie,
+    MovieLike,
+    MovieComment,
+    MovieFavorite,
+    MovieRating,
+)
 
 config = context.config
 
