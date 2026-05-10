@@ -4,6 +4,7 @@ from src.routes.accounts import router as accounts_router
 from src.database.session import AsyncSessionLocal
 from src.database.seed import seed_user_groups
 from src.routes.movies import router as movies_router
+from src.routes.cart import router as cart_router
 
 
 @asynccontextmanager
@@ -16,6 +17,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.include_router(accounts_router)
 app.include_router(movies_router)
+app.include_router(cart_router)
 
 
 @app.get("/")
