@@ -91,6 +91,9 @@ class User(Base):
     refresh_tokens: Mapped[List["RefreshToken"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    cart: Mapped[Optional["Cart"]] = relationship(
+        back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
 
     @property
     def password(self) -> None:
