@@ -5,6 +5,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import SQLAlchemyError
 
+from src.database.models.cart import CartItem, MoviePurchase
 from src.database.session import get_db
 from src.database.models.accounts import User, UserGroupEnum
 from src.database.models.movies import (
@@ -180,7 +181,20 @@ async def delete_movie(
     if not movie:
         raise HTTPException(status_code=404, detail="Movie not found.")
 
-    # TODO: перевірити що фільм не куплений
+    cart_check = await db.execute(select(CartItem).where(CartItem.movie_id == movie_id))
+    if cart_check.scalar_one_or_none():
+        raise HTTPException(
+            status_code=400, detail="Cannot delete movie that is in users' carts."
+        )
+
+    purchase_check = await db.execute(
+        select(MoviePurchase).where(MoviePurchase.movie_id == movie_id)
+    )
+    if purchase_check.scalar_one_or_none():
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete movie that has already been purchased.",
+        )
 
     try:
         await db.delete(movie)
