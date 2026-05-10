@@ -29,6 +29,7 @@ from src.database.models.movies import (
     MovieFavorite,
     MovieRating,
 )
+from src.database.models.cart import Cart, CartItem, MoviePurchase
 
 config = context.config
 
