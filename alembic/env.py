@@ -10,14 +10,6 @@ from alembic import context
 from src.config.settings import settings
 from src.database.session import Base
 
-from src.database.models.accounts import (
-    UserGroup,
-    User,
-    UserProfile,
-    ActivationToken,
-    PasswordResetToken,
-    RefreshToken,
-)
 from src.database.models.movies import (
     Genre,
     Star,
@@ -28,6 +20,16 @@ from src.database.models.movies import (
     MovieComment,
     MovieFavorite,
     MovieRating,
+    Notification,
+    MovieCommentLike,
+)
+from src.database.models.accounts import (
+    UserGroup,
+    User,
+    UserProfile,
+    ActivationToken,
+    PasswordResetToken,
+    RefreshToken,
 )
 from src.database.models.cart import Cart, CartItem, MoviePurchase
 

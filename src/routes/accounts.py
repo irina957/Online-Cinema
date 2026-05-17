@@ -1,17 +1,21 @@
 import secrets
+import uuid
 from typing import cast
 from datetime import datetime, timezone, timedelta
-from fastapi import APIRouter, Depends, status, HTTPException
+from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
+from src.database.models.movies import Notification
+from schemas.movies import NotificationSchema
 from src.security.roles import RoleChecker
 from src.security.dependencies import get_current_user
 from src.security.tokens import create_access_token, create_refresh_token
 from src.database.session import get_db
 from src.config.settings import settings
-
+from src.tasks.accounts import send_activation_email
+from src.tasks.accounts import send_reset_password_email
 from src.database.models.accounts import (
     User,
     UserGroup,
@@ -38,6 +42,7 @@ from src.schemas.accounts import (
 )
 
 from src.security.passwords import hash_password
+from storages.minio_client import delete_avatar, upload_avatar, get_avatar_url
 
 router = APIRouter(prefix="/accounts", tags=["Accounts"])
 
@@ -88,10 +93,9 @@ async def register_user(
             expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
         )
         db.add(activation_rec)
-
         await db.commit()
         await db.refresh(new_account)
-
+        send_activation_email.delay(str(new_account.email), activation_rec.token)
     except SQLAlchemyError:
         await db.rollback()
         raise HTTPException(
@@ -149,6 +153,16 @@ async def resend_activation_token(
         )
 
     return MessageResponseSchema(message="Activation token resent successfully.")
+
+
+@router.get("/activate/")
+async def activate_user_by_link(
+    email: str,
+    token: str,
+    db: AsyncSession = Depends(get_db),
+) -> MessageResponseSchema:
+    data = UserActivationRequestSchema(email=email, token=token)
+    return await activate_user(data=data, db=db)
 
 
 @router.post("/activate/", response_model=MessageResponseSchema)
@@ -428,9 +442,7 @@ async def request_password_reset(
         )
         db.add(reset_token)
         await db.commit()
-
-        print(f"DEBUG: Reset token for {user.email} is {reset_token.token}")
-
+        send_reset_password_email.delay(str(user.email), token_str)
     except SQLAlchemyError:
         await db.rollback()
         raise HTTPException(status_code=500, detail="Error processing password reset.")
@@ -497,6 +509,58 @@ async def change_password(
     return MessageResponseSchema(message="Password changed successfully.")
 
 
+@router.patch("/me/avatar/", response_model=UserProfileSchema)
+async def upload_my_avatar(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> UserProfileSchema:
+    result = await db.execute(
+        select(UserProfile).where(UserProfile.user_id == current_user.id)
+    )
+    profile = result.scalars().first()
+
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    if profile.avatar:
+        delete_avatar(profile.avatar)
+
+    file_data = await file.read()
+    filename = f"{uuid.uuid4()}{file.filename[file.filename.rfind('.'):]}"
+
+    upload_avatar(file_data, filename, file.content_type or "image/jpeg")
+
+    profile.avatar = filename
+
+    try:
+        await db.commit()
+        await db.refresh(profile)
+    except SQLAlchemyError:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Error updating avatar.")
+
+    profile_data = UserProfileSchema.model_validate(profile)
+    return profile_data
+
+
+@router.get("/me/avatar/")
+async def get_my_avatar(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(UserProfile).where(UserProfile.user_id == current_user.id)
+    )
+    profile = result.scalars().first()
+
+    if not profile or not profile.avatar:
+        raise HTTPException(status_code=404, detail="Avatar not found.")
+
+    url = get_avatar_url(profile.avatar)
+    return {"avatar_url": url}
+
+
 @router.get("/me/", response_model=UserProfileSchema)
 async def get_my_profile(
     current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
@@ -539,3 +603,40 @@ async def update_my_profile(
         raise HTTPException(status_code=500, detail="Error updating profile")
 
     return profile
+
+
+@router.get("/notifications/", response_model=list[NotificationSchema])
+async def get_notifications(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Notification)
+        .where(Notification.user_id == current_user.id)
+        .order_by(Notification.created_at.desc())
+    )
+    return result.scalars().all()
+
+
+@router.patch(
+    "/notifications/{notification_id}/read/", response_model=NotificationSchema
+)
+async def mark_notification_read(
+    notification_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Notification).where(
+            Notification.id == notification_id,
+            Notification.user_id == current_user.id,
+        )
+    )
+    notification = result.scalar_one_or_none()
+    if not notification:
+        raise HTTPException(status_code=404, detail="Notification not found.")
+
+    notification.is_read = True
+    await db.commit()
+    await db.refresh(notification)
+    return notification

@@ -5,6 +5,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import SQLAlchemyError
 
+from schemas.cart import MessageResponseSchema
 from src.database.models.cart import CartItem, MoviePurchase
 from src.database.session import get_db
 from src.database.models.accounts import User, UserGroupEnum
@@ -19,6 +20,8 @@ from src.database.models.movies import (
     MovieFavorite,
     MovieRating,
     movie_genres,
+    Notification,
+    MovieCommentLike,
 )
 from src.schemas.movies import (
     MovieListSchema,
@@ -601,6 +604,7 @@ async def add_comment(
     if not movie:
         raise HTTPException(status_code=404, detail="Movie not found.")
 
+    parent = None
     if data.parent_id is not None and data.parent_id > 0:
         parent = await db.get(MovieComment, data.parent_id)
         if not parent or parent.movie_id != movie_id:
@@ -613,16 +617,30 @@ async def add_comment(
         parent_id=data.parent_id,
     )
     db.add(comment)
+    await db.flush()
+
+    if parent and parent.user_id != current_user.id:
+        notification = Notification(
+            user_id=cast(int, parent.user_id),
+            message=f"Someone replied to your comment on movie ID {movie_id}.",
+        )
+        db.add(notification)
+
     await db.commit()
-    await db.refresh(comment)
-    return comment
+
+    result = await db.execute(
+        select(MovieComment)
+        .options(selectinload(MovieComment.replies))
+        .where(MovieComment.id == comment.id)
+    )
+    return result.scalar_one()
 
 
 @router.get("/{movie_id}/comments/", response_model=list[MovieCommentSchema])
 async def get_comments(movie_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(MovieComment)
-        .options(selectinload(MovieComment.replies))
+        .options(selectinload(MovieComment.replies).selectinload(MovieComment.replies))
         .where(MovieComment.movie_id == movie_id, MovieComment.parent_id.is_(None))
         .order_by(MovieComment.created_at)
     )
@@ -672,3 +690,42 @@ async def remove_from_favorites(
     await db.delete(favorite)
     await db.commit()
     return MovieFavoriteResponseSchema(message="Movie removed from favorites.")
+
+
+@router.post(
+    "/{movie_id}/comments/{comment_id}/like/", response_model=MessageResponseSchema
+)
+async def like_comment(
+    movie_id: int,
+    comment_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    comment = await db.get(MovieComment, comment_id)
+    if not comment or comment.movie_id != movie_id:
+        raise HTTPException(status_code=404, detail="Comment not found.")
+
+    existing = await db.execute(
+        select(MovieCommentLike).where(
+            MovieCommentLike.comment_id == comment_id,
+            MovieCommentLike.user_id == current_user.id,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Already liked this comment.")
+
+    like = MovieCommentLike(
+        comment_id=comment_id,
+        user_id=cast(int, current_user.id),
+    )
+    db.add(like)
+
+    if comment.user_id != current_user.id:
+        notification = Notification(
+            user_id=cast(int, comment.user_id),
+            message=f"Someone liked your comment on movie ID {movie_id}.",
+        )
+        db.add(notification)
+
+    await db.commit()
+    return MessageResponseSchema(message="Comment liked successfully.")

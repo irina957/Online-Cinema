@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 from pydantic import BaseModel, Field
@@ -146,3 +147,12 @@ class DirectorCreateSchema(BaseModel):
 
 class CertificationCreateSchema(BaseModel):
     name: str = Field(max_length=100)
+
+
+class NotificationSchema(BaseModel):
+    id: int
+    message: str
+    is_read: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

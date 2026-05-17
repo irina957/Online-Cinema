@@ -20,6 +20,17 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
+    REDIS_URL: str = "redis://localhost:6379/0"
+
+    MAIL_USERNAME: str = "testuser"
+    MAIL_PASSWORD: str = "testpassword"
+    MAIL_FROM: str = "admin@online-cinema.com"
+    MAIL_PORT: int = 1025
+    MAIL_SERVER: str = "mailhog"
+    MAIL_FROM_NAME: str = "Online_Cinema_Admin"
+    MINIO_ROOT_USER: str = "minioadmin"
+    MINIO_ROOT_PASSWORD: str = "minioadmin123"
+
     @property
     def DATABASE_URL(self) -> str:
         return (

@@ -212,3 +212,33 @@ class MovieRating(Base):
     )
 
     movie: Mapped["Movie"] = relationship(back_populates="ratings")
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    message: Mapped[str] = mapped_column(String(500), nullable=False)
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class MovieCommentLike(Base):
+    __tablename__ = "movie_comment_likes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    comment_id: Mapped[int] = mapped_column(
+        ForeignKey("movie_comments.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint("comment_id", "user_id", name="uq_comment_like_user"),
+    )
