@@ -4,6 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["iryna <irakirvas78@gmail.com>"]
 readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
@@ -24,9 +25,20 @@ redis = "^7.4.0"
 fastapi-mail = "^1.6.4"
 minio = "^7.2.20"
 
-[tool.poetry.dev-dependencies]
-black = "*"
-
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "black>=26.5.1",
+    "flake8>=7.3.0",
+    "mypy>=2.1.0",
+    "pytest>=9.0.3",
+    "pytest-cov>=5.0.0"
+]
+[tool.mypy]
+explicit_package_bases = true
+ignore_missing_imports = true
+check_untyped_defs = false
+ignore_errors = true
