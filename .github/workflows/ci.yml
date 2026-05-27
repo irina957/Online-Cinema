@@ -33,7 +33,7 @@ jobs:
         run: poetry run flake8 src
 
       - name: Run mypy
-        run: poetry run mypy src
+        run: poetry run mypy src --explicit-package-bases
 
       #- name: Run accounts tests with coverage
       #  run: poetry run pytest src/tests/test_integration/test_accounts.py --cov=src --cov-report=term-missing
@@ -61,7 +61,7 @@ jobs:
         run: poetry run flake8 src
 
       - name: Run mypy
-        run: poetry run mypy src
+        run: poetry run mypy src --explicit-package-bases
 
       #- name: Run movies tests with coverage
       #  run: poetry run pytest src/tests/test_integration/test_movies.py --cov=src --cov-report=term-missing
@@ -89,7 +89,7 @@ jobs:
         run: poetry run flake8 src
 
       - name: Run mypy
-        run: poetry run mypy src
+        run: poetry run mypy src --explicit-package-bases
 
       #- name: Run profiles tests with coverage
       #  run: poetry run pytest src/tests/test_integration/test_profiles.py --cov=src --cov-report=term-missing
